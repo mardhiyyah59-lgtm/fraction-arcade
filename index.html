@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fraction Arcade — Interactive Game</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05051a;font-family:Arial,Helvetica,sans-serif}
+#app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
+#stage{position:relative;width:min(100vw,177.7778vh);height:min(100vh,56.25vw);max-width:1920px;max-height:1080px;overflow:hidden;border-radius:10px;box-shadow:0 0 35px rgba(0,0,0,.7);animation:stageGlow 4s ease-in-out infinite}
+#pageImg{width:100%;height:100%;display:block;object-fit:fill;user-select:none;-webkit-user-drag:none;transform-origin:center;animation:arcadeBreath 7s ease-in-out infinite;transition:opacity .25s ease,transform .35s ease}
+#stage.page-change #pageImg{opacity:.72;transform:scale(1.018)}
+#hotspots{position:absolute;inset:0;z-index:3}
+.hot{position:absolute;border:0;background:rgba(255,255,255,0);cursor:pointer;border-radius:18px;transition:transform .16s ease,background .16s ease,box-shadow .16s ease;outline:none;animation:softFloat 3.5s ease-in-out infinite}
+.hot:hover{background:rgba(255,255,255,.09);box-shadow:0 0 18px rgba(80,220,255,.45),inset 0 0 10px rgba(255,255,255,.08);transform:scale(1.035)}
+.hot:active{transform:scale(.96);box-shadow:0 0 28px rgba(255,255,255,.75)}
+#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.spark{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 7px 2px rgba(120,220,255,.9);opacity:0;animation:sparkle var(--dur) ease-in-out var(--delay) infinite}
+.scan{position:absolute;left:0;right:0;height:2px;top:-5px;background:linear-gradient(90deg,transparent,rgba(100,220,255,.22),transparent);box-shadow:0 0 12px rgba(100,220,255,.25);animation:scan 6s linear infinite}
+#pageLabel{position:absolute;right:10px;bottom:8px;color:rgba(255,255,255,.20);font-size:11px;pointer-events:none;z-index:3}
+#gameTimer{position:absolute;left:76.7%;top:29.2%;width:5.7%;height:8.5%;display:none;align-items:center;justify-content:center;z-index:4;pointer-events:none;border-radius:50%;font-weight:900;font-size:clamp(12px,1.65vw,28px);color:#fff;text-shadow:0 1px 3px #10103d,0 0 8px #00dfff;background:rgba(18,22,86,.84);border:2px solid #7deaff;box-shadow:0 0 12px rgba(0,220,255,.8);font-variant-numeric:tabular-nums}
+#gameTimer.warning{color:#fff3a1;border-color:#ffb33d;box-shadow:0 0 15px rgba(255,150,30,.95)}
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;background:#070722;font-size:20px;z-index:5}
+#musicToggle{position:fixed;right:16px;top:16px;z-index:20;width:46px;height:46px;border:0;border-radius:50%;background:rgba(10,15,55,.82);color:#fff;font-size:21px;cursor:pointer;box-shadow:0 0 14px rgba(60,200,255,.35);backdrop-filter:blur(4px)}
+#musicToggle:hover{transform:scale(1.08)}
+#thankyou{display:none;position:absolute;inset:0;z-index:6;background:#070722 url("assets/thankyou.png") center/100% 100% no-repeat;}
+#thanksHotspots{position:absolute;inset:0;z-index:7;display:none;}
+.thanksHot{position:absolute;border:0;background:transparent;cursor:pointer;border-radius:22px;}
+.thanksHot:hover{background:rgba(255,255,255,.08);box-shadow:0 0 18px rgba(80,220,255,.25);}
+#stage.thanks #pageImg,#stage.thanks #hotspots{display:none}
+#stage.thanks #thankyou{display:block}
+#stage.thanks #thanksHotspots{display:block}
+@keyframes arcadeBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.006)}}
+@keyframes stageGlow{0%,100%{box-shadow:0 0 35px rgba(0,0,0,.7)}50%{box-shadow:0 0 48px rgba(55,180,255,.16),0 0 35px rgba(0,0,0,.7)}}
+@keyframes softFloat{0%,100%{filter:brightness(1)}50%{filter:brightness(1.035)}}
+@keyframes sparkle{0%{opacity:0;transform:translateY(15px) scale(.5)}25%{opacity:.75}55%{opacity:.25;transform:translateY(-25px) scale(1)}100%{opacity:0;transform:translateY(-55px) scale(.4)}}
+@keyframes scan{0%{top:-5px;opacity:0}8%{opacity:.8}92%{opacity:.8}100%{top:105%;opacity:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(max-width:700px){#stage{border-radius:0}.hot:hover{background:transparent;box-shadow:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="fx"><div class="scan"></div></div>
+    <img id="pageImg" alt="Original Fraction Arcade game screen">
+    <div id="hotspots"></div><div id="pageLabel"></div><div id="thankyou"></div><div id="thanksHotspots"><button class="thanksHot" aria-label="Play Again" title="Play Again" style="left:29%;top:71%;width:20%;height:20%" onclick="playAgainToGameMenu()"></button><button class="thanksHot" aria-label="Home" title="Home" style="left:51%;top:71%;width:20%;height:20%" onclick="go(1)"></button></div>
+  </div>
+  <div id="loading">Loading Fraction Arcade…</div>
+</div>
+<button id="musicToggle" aria-label="Toggle music" title="Toggle music">🔇</button>
+<script>
+const IMAGES = Array.from({length:33},(_,i)=>`assets/slide_${i+1}.jpg`);
+
+const musicButton=document.getElementById('musicToggle');
+let audioCtx=null, musicOn=false, musicTimer=null, noteIndex=0;
+const melody=[659.25,783.99,987.77,783.99,880,1046.5,987.77,783.99,659.25,587.33,659.25,783.99,523.25,659.25,783.99,659.25];
+function playNote(freq, when, duration){
+  if(!audioCtx) return;
+  const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+  osc.type='square'; osc.frequency.setValueAtTime(freq,when);
+  gain.gain.setValueAtTime(0.0001,when); gain.gain.exponentialRampToValueAtTime(0.045,when+0.012); gain.gain.exponentialRampToValueAtTime(0.0001,when+duration);
+  osc.connect(gain); gain.connect(audioCtx.destination); osc.start(when); osc.stop(when+duration+0.02);
+}
+function scheduleMusic(){
+  if(!musicOn||!audioCtx) return;
+  const now=audioCtx.currentTime;
+  for(let i=0;i<4;i++){
+    const idx=(noteIndex+i)%melody.length;
+    playNote(melody[idx],now+i*0.19,0.15);
+    if(idx%4===0) playNote(melody[idx]/2,now+i*0.19,0.17);
+  }
+  noteIndex=(noteIndex+4)%melody.length;
+  musicTimer=window.setTimeout(scheduleMusic,760);
+}
+async function toggleMusic(force){
+  const want=typeof force==='boolean'?force:!musicOn;
+  if(want===musicOn) return;
+  if(want){
+    try{const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx){musicButton.textContent='⚠️';return} audioCtx=audioCtx||new Ctx(); if(audioCtx.state==='suspended') await audioCtx.resume(); musicOn=true;musicButton.textContent='🔊';musicButton.title='Turn music off';scheduleMusic();}
+    catch(e){musicOn=false;musicButton.textContent='🔇';}
+  }else{musicOn=false;if(musicTimer)clearTimeout(musicTimer);musicTimer=null;musicButton.textContent='🔇';musicButton.title='Turn music on';}
+}
+musicButton.addEventListener('click',()=>toggleMusic());
+
+let page=1, history=[], currentQuestion=null;
+let timerSeconds=300, timerInterval=null, timerRunning=false;
+const completedGames=new Set();
+const img=document.getElementById('pageImg'), layer=document.getElementById('hotspots'), label=document.getElementById('pageLabel'), stage=document.getElementById('stage'), fx=document.getElementById('fx');
+
+const H={
+  1:[['start',36,70,29,19]],
+  2:[['learn',19,28,30,51],['games',51,28,30,51]],
+  3:[['home',0,0,13,18],['next',78,82,20,15]],
+  4:[['home',0,0,13,18],['prev',14,82,24,15],['next',67,82,22,15]],
+  5:[['home',0,0,13,18],['prev',14,82,24,15],['next',67,82,22,15]],
+  6:[['home',0,0,13,18],['prev',14,82,24,15],['next',67,82,22,15]],
+  7:[['home',0,0,13,18],['prev',14,82,24,15],['next',67,82,22,15]],
+  8:[['home',3,0,10,16],['g1',14,23,34,34],['g2',52,23,34,34],['g3',14,59,34,34],['g4',52,59,34,34]],
+  9:[['left',25,42,25,43],['right',51,42,25,43]],
+  10:[['left',25,42,25,43],['right',51,42,25,43]],
+  11:[['left',25,42,25,43],['right',51,42,25,43]],
+  12:[['left',25,42,25,43],['right',51,42,25,43]],
+  13:[['next',30,76,40,19]],14:[['retry',30,76,40,19]],
+  15:[['greater',41.5,45.5,17.5,10.5],['less',41.5,57.5,17.5,10.5],['equal',41.5,69,17.5,10.5]],
+  16:[['greater',41.5,45.5,17.5,10.5],['less',41.5,57.5,17.5,10.5],['equal',41.5,69,17.5,10.5]],
+  17:[['greater',41.5,45.5,17.5,10.5],['less',41.5,57.5,17.5,10.5],['equal',41.5,69,17.5,10.5]],
+  18:[['greater',41.5,45.5,17.5,10.5],['less',41.5,57.5,17.5,10.5],['equal',41.5,69,17.5,10.5]],
+  19:[['next',30,76,40,19]],20:[['retry',30,76,40,19]],
+  21:[['A',22,42,28,42],['B',50,42,29,42]],
+  22:[['A',22,42,28,42],['B',50,42,29,42]],
+  23:[['A',22,42,28,42],['B',50,42,29,42]],
+  24:[['A',22,42,28,42],['B',50,42,29,42]],
+  25:[['next',30,76,40,19]],26:[['retry',30,76,40,19]],
+  27:[['A',22,42,28,42],['B',50,42,29,42]],
+  28:[['A',22,42,28,42],['B',50,42,29,42]],
+  29:[['A',22,42,28,42],['B',50,42,29,42]],
+  30:[['A',22,42,28,42],['B',50,42,29,42]],
+  31:[['next',30,76,40,19]],32:[['retry',30,76,40,19]]
+};
+const Q={
+  9:{answers:['left','right'],correct:'right',ok:13,bad:14,game:1},
+  10:{answers:['left','right'],correct:'right',ok:13,bad:14,game:1},
+  11:{answers:['left','right'],correct:'right',ok:13,bad:14,game:1},
+  12:{answers:['left','right'],correct:'left',ok:13,bad:14,game:1},
+  15:{answers:['greater','less','equal'],correct:'greater',ok:19,bad:20,game:2},
+  16:{answers:['greater','less','equal'],correct:'less',ok:19,bad:20,game:2},
+  17:{answers:['greater','less','equal'],correct:'greater',ok:19,bad:20,game:2},
+  18:{answers:['greater','less','equal'],correct:'less',ok:19,bad:20,game:2},
+  21:{answers:['A','B'],correct:'B',ok:25,bad:26,game:3},
+  22:{answers:['A','B'],correct:'B',ok:25,bad:26,game:3},
+  23:{answers:['A','B'],correct:'B',ok:25,bad:26,game:3},
+  24:{answers:['A','B'],correct:'A',ok:25,bad:26,game:3},
+  27:{answers:['A','B'],correct:'A',ok:31,bad:32,game:4},
+  28:{answers:['A','B'],correct:'B',ok:31,bad:32,game:4},
+  29:{answers:['A','B'],correct:'B',ok:31,bad:32,game:4},
+  30:{answers:['A','B'],correct:'B',ok:31,bad:32,game:4}
+};
+const gameQs={1:[9,10,11,12],2:[15,16,17,18],3:[21,22,23,24],4:[27,28,29,30]};
+function makeSparkles(){fx.querySelectorAll('.spark').forEach(e=>e.remove());for(let i=0;i<18;i++){let s=document.createElement('span');s.className='spark';s.style.left=(5+Math.random()*90)+'%';s.style.top=(15+Math.random()*70)+'%';s.style.setProperty('--dur',(2.5+Math.random()*3.5)+'s');s.style.setProperty('--delay',(-Math.random()*5)+'s');fx.appendChild(s)}}
+function go(n,push=true){if(n<1||n>34)return;if(push&&page!==n)history.push(page);stage.classList.remove('page-change');void stage.offsetWidth;stage.classList.add('page-change');setTimeout(()=>stage.classList.remove('page-change'),380);page=n;stage.classList.toggle('thanks',n===34);if(n<=33){img.src=IMAGES[n-1];label.textContent=`${n} / 33`;}else{label.textContent='';}render();window.setTimeout(()=>{},0)}
+function addHot(type,x,y,w,h){let b=document.createElement('button');b.className='hot';b.style.left=x+'%';b.style.top=y+'%';b.style.width=w+'%';b.style.height=h+'%';b.setAttribute('aria-label',type);b.onclick=()=>action(type);layer.appendChild(b)}
+function render(){layer.innerHTML='';(H[page]||[]).forEach(v=>addHot(...v))}
+function restartAll(){completedGames.clear();currentQuestion=null;go(1)}
+function playAgainToGameMenu(){completedGames.clear();currentQuestion=null;go(8)}
+function action(type){
+ if(type==='start'){toggleMusic(true);go(2);return}
+ if(type==='learn'){go(3);return}
+ if(type==='games'){go(8);return}
+ if(type==='home'){go(1);return}
+ if(type==='prev'){go(Math.max(3,page-1));return}
+ if(type==='next'){
+   if([13,19,25,31].includes(page)){continueGame();return}
+   if(page===7){go(2);return}
+   go(({3:4,4:5,5:6,6:7})[page]||2);return
+ }
+ if(type==='retry'){if(currentQuestion)go(currentQuestion);else go(8);return}
+ if(type==='g1'){currentQuestion=9;go(9);return}
+ if(type==='g2'){currentQuestion=15;go(15);return}
+ if(type==='g3'){currentQuestion=21;go(21);return}
+ if(type==='g4'){currentQuestion=27;go(27);return}
+ const q=Q[page];
+ if(q&&q.answers.includes(type)){currentQuestion=page;go(type===q.correct?q.ok:q.bad)}
+}
+function continueGame(){
+ const q=Q[currentQuestion];if(!q){go(8);return}
+ const arr=gameQs[q.game],i=arr.indexOf(currentQuestion);
+ if(i<arr.length-1){currentQuestion=arr[i+1];go(currentQuestion)}
+ else{completedGames.add(q.game);currentQuestion=null;if(completedGames.size===4){go(34)}else{go(8)}}
+}
+img.onload=()=>{document.getElementById('loading').style.display='none';makeSparkles()};
+go(1,false);
+</script>
+</body></html>
