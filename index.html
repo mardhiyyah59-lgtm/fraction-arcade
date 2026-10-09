@@ -51,7 +51,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05051a;fon
 </div>
 <button id="musicToggle" aria-label="Toggle music" title="Toggle music">🔇</button>
 <script>
-const IMAGES = Array.from({length:33},(_,i)=>`assets/slide_${i+1}.jpg`);
+const IMAGES = Array.from({length:33},(_,i)=>`slide_${i+1}.jpg`);
 
 const musicButton=document.getElementById('musicToggle');
 let audioCtx=null, musicOn=false, musicTimer=null, noteIndex=0;
